@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard | La Torre Estética</title>
+
+  <!--
+    Chart.js se mantiene desde CDN, tal como en la versión original.
+    No se modifica la lógica del dashboard: solo la presentación visual.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
+  <style>
+    /*
+      ============================================================
+      1. PALETA REDUCIDA A 3 COLORES
+      ============================================================
+      Se usan únicamente:
+      - Fondo: casi negro
+      - Texto: blanco suave
+      - Acento: violeta
+
+      Los grises secundarios, bordes y fondos translúcidos se generan
+      solamente mediante transparencia de estos mismos colores.
+      Esto reduce ruido visual y mejora la consistencia de la interfaz.
+    */
+    :root {
+      --color-bg: #0b0b0f;
+      --color-text: #f4f4f6;
+      --color-accent: #c7a4ff;
+
+      /*
+        Escala de espaciado basada en 8 px.
+        Todo padding, gap y margin estructural usa múltiplos de 8.
+      */
+      --space-1: 8px;
+      --space-2: 16px;
+      --space-3: 24px;
+      --space-4: 32px;
+      --space-5: 40px;
+      --space-6: 48px;
+      --space-8: 64px;
+
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-pill: 999px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      color-scheme: dark;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      background: var(--color-bg);
+      color: var(--color-text);
+
+      /*
+        Jerarquía base:
+        16 px mejora legibilidad y ayuda a superar WCAG AA.
+      */
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    button,
+    select,
+    input {
+      font: inherit;
+    }
+
+    /*
+      ============================================================
+      2. MOBILE-FIRST
+      ============================================================
+      La vista base está pensada para celular.
+      Los breakpoints posteriores agregan columnas y mayor aire,
+      en vez de intentar "achicar" un diseño de escritorio.
+    */
+    .app-shell {
+      width: 100%;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: var(--space-3) var(--space-2) var(--space-5);
+    }
+
+    .topbar {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--space-3);
+      margin-bottom: var(--space-3);
+    }
+
+    .brand-block {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-2);
+    }
+
+    .brand-mark {
+      flex: 0 0 auto;
+      width: var(--space-6);
+      height: var(--space-6);
+      display: grid;
+      place-items: center;
+      border-radius: var(--radius-md);
+      background: var(--color-accent);
+      color: var(--color-bg);
+      font-size: 0.875rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    /*
+      ============================================================
+      3. JERARQUÍA TIPOGRÁFICA
+      ============================================================
+      Se reduce la cantidad de tamaños arbitrarios y se define una
+      jerarquía clara:
+      - Eyebrow: 12 px
+      - Texto secundario: 14 px
+      - Texto base: 16 px
+      - Títulos de sección: 20 px
+      - Título principal: 32 px
+      - Métrica destacada: 40-48 px
+    */
+    .eyebrow {
+      margin: 0 0 var(--space-1);
+      color: var(--color-text);
+      opacity: 0.72;
+      font-size: 0.75rem;
+      font-weight: 700;
+      line-height: 1.3;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 2rem;
+      line-height: 1.1;
+      font-weight: 750;
+      letter-spacing: -0.035em;
+    }
+
+    .subtitle {
+      margin: var(--space-1) 0 0;
+      max-width: 62ch;
+      color: var(--color-text);
+      opacity: 0.72;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    /*
+      El selector ocupa todo el ancho en móvil.
+      Los botones mantienen un área táctil cómoda.
+    */
+    .filter-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-1);
+      width: 100%;
+      padding: var(--space-1);
+      border: 1px solid rgba(244, 244, 246, 0.16);
+      border-radius: var(--radius-md);
+      background: rgba(244, 244, 246, 0.03);
+    }
+
+    .filter-btn {
+      min-height: var(--space-6);
+      padding: var(--space-1) var(--space-2);
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--color-text);
+      opacity: 0.72;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 700;
+      transition:
+        background-color 160ms ease,
+        color 160ms ease,
+        opacity 160ms ease;
+    }
+
+    .filter-btn:hover,
+    .filter-btn:focus-visible {
+      opacity: 1;
+      outline: none;
+      background: rgba(199, 164, 255, 0.12);
+    }
+
+    .filter-btn.active {
+      background: var(--color-accent);
+      color: var(--color-bg);
+      opacity: 1;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-2);
+      margin-bottom: var(--space-2);
+    }
+
+    /*
+      Las tarjetas se diferencian por borde y espacio, no por nuevos colores.
+      Esto mantiene la paleta contenida y reduce ruido visual.
+    */
+    .card {
+      border: 1px solid rgba(244, 244, 246, 0.14);
+      border-radius: var(--radius-md);
+      background: rgba(244, 244, 246, 0.025);
+    }
+
+    .metric-card {
+      position: relative;
+      overflow: hidden;
+      padding: var(--space-3);
+    }
+
+    .metric-card::after {
+      content: "";
+      position: absolute;
+      top: calc(var(--space-4) * -1);
+      right: calc(var(--space-4) * -1);
+      width: var(--space-8);
+      height: var(--space-8);
+      border: 1px solid rgba(199, 164, 255, 0.16);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .metric-label {
+      margin-bottom: var(--space-1);
+      color: var(--color-text);
+      opacity: 0.72;
+      font-size: 0.875rem;
+      line-height: 1.4;
+      font-weight: 650;
+    }
+
+    .metric-value {
+      margin-bottom: var(--space-2);
+      font-size: 2.5rem;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-1);
+      color: var(--color-text);
+      opacity: 0.72;
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }
+
+    /*
+      Antes había verde y amarillo para tendencias.
+      Ahora se usa un solo acento para no superar 3 colores.
+      La interpretación sigue dependiendo del número y del signo.
+    */
+    .trend-positive,
+    .trend-neutral {
+      color: var(--color-accent);
+      opacity: 1;
+      font-weight: 750;
+    }
+
+    .main-card {
+      padding: var(--space-2);
+      margin-bottom: var(--space-2);
+    }
+
+    .section-header {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-1);
+      margin-bottom: var(--space-3);
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 1.25rem;
+      line-height: 1.3;
+      font-weight: 750;
+      letter-spacing: -0.02em;
+    }
+
+    .section-copy,
+    .legend-note {
+      color: var(--color-text);
+      opacity: 0.72;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .section-copy {
+      margin: var(--space-1) 0 0;
+    }
+
+    .legend-note {
+      white-space: nowrap;
+    }
+
+    /*
+      Altura móvil suficiente para leer las series sin ocupar toda la pantalla.
+    */
+    .chart-wrap {
+      position: relative;
+      height: 288px;
+    }
+
+    .table-card {
+      overflow: hidden;
+    }
+
+    .table-header {
+      padding: var(--space-3) var(--space-2) var(--space-2);
+    }
+
+    .table-scroll {
+      overflow-x: visible;
+    }
+
+    /*
+      ============================================================
+      4. TABLA RESPONSIVE SIN PERDER SEMÁNTICA
+      ============================================================
+      En móvil:
+      - Se conserva <table>, <thead>, <tbody>, <tr>, <td>.
+      - Visualmente cada fila se convierte en una tarjeta vertical.
+      - Los nombres de columna aparecen mediante data-label.
+
+      Así se evita el scroll horizontal y se mantiene HTML semántico.
+    */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      display: none;
+    }
+
+    tbody {
+      display: grid;
+      gap: var(--space-1);
+      padding: 0 var(--space-2) var(--space-2);
+    }
+
+    tbody tr {
+      display: block;
+      padding: var(--space-1) 0;
+      border: 1px solid rgba(244, 244, 246, 0.12);
+      border-radius: var(--radius-md);
+      background: rgba(244, 244, 246, 0.02);
+    }
+
+    tbody td {
+      display: grid;
+      grid-template-columns: minmax(96px, 34%) 1fr;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-1) var(--space-2);
+      border: 0;
+      color: var(--color-text);
+      font-size: 0.875rem;
+      line-height: 1.45;
+    }
+
+    tbody td::before {
+      content: attr(data-label);
+      color: var(--color-text);
+      opacity: 0.72;
+      font-size: 0.75rem;
+      font-weight: 750;
+      line-height: 1.3;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .client-cell {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      min-width: 0;
+    }
+
+    .avatar {
+      flex: 0 0 auto;
+      width: var(--space-5);
+      height: var(--space-5);
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(199, 164, 255, 0.26);
+      border-radius: var(--radius-sm);
+      background: rgba(199, 164, 255, 0.08);
+      color: var(--color-accent);
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    /*
+      Los estados ya no dependen de verde/amarillo/violeta.
+      Se distinguen por texto, relleno y estilo de borde usando la misma paleta.
+    */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: var(--space-1) var(--space-2);
+      border: 1px solid var(--color-accent);
+      border-radius: var(--radius-pill);
+      color: var(--color-accent);
+      font-size: 0.75rem;
+      line-height: 1;
+      font-weight: 750;
+    }
+
+    .badge-completed {
+      background: rgba(199, 164, 255, 0.12);
+    }
+
+    .badge-pending {
+      background: transparent;
+      border-style: dashed;
+    }
+
+    .badge-lead {
+      background: rgba(244, 244, 246, 0.05);
+      color: var(--color-text);
+    }
+
+    .money {
+      color: var(--color-text);
+      font-variant-numeric: tabular-nums;
+      font-weight: 750;
+    }
+
+    .footer {
+      padding-top: var(--space-3);
+      color: var(--color-text);
+      opacity: 0.72;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    /*
+      ============================================================
+      TABLET — desde 768 px
+      ============================================================
+      Se aumenta el aire y las métricas pasan a 3 columnas.
+    */
+    @media (min-width: 768px) {
+      .app-shell {
+        padding:
+          var(--space-4)
+          var(--space-3)
+          var(--space-6);
+      }
+
+      .topbar {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-4);
+        margin-bottom: var(--space-4);
+      }
+
+      .filter-group {
+        width: auto;
+        min-width: 304px;
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--space-2);
+        margin-bottom: var(--space-2);
+      }
+
+      .metric-value {
+        font-size: 3rem;
+      }
+
+      .main-card {
+        padding: var(--space-3);
+      }
+
+      .section-header {
+        flex-direction: row;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--space-3);
+      }
+
+      .chart-wrap {
+        height: 352px;
+      }
+
+      /*
+        A partir de tablet la tabla vuelve a su representación tabular clásica.
+      */
+      .table-scroll {
+        overflow-x: auto;
+      }
+
+      table {
+        min-width: 880px;
+      }
+
+      thead {
+        display: table-header-group;
+      }
+
+      tbody {
+        display: table-row-group;
+        padding: 0;
+      }
+
+      thead tr,
+      tbody tr {
+        display: table-row;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+      }
+
+      thead th {
+        padding: var(--space-2) var(--space-3);
+        border-top: 1px solid rgba(244, 244, 246, 0.12);
+        border-bottom: 1px solid rgba(244, 244, 246, 0.12);
+        color: var(--color-text);
+        opacity: 0.72;
+        font-size: 0.75rem;
+        line-height: 1.3;
+        font-weight: 750;
+        text-align: left;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        white-space: nowrap;
+      }
+
+      tbody td {
+        display: table-cell;
+        padding: var(--space-2) var(--space-3);
+        border-bottom: 1px solid rgba(244, 244, 246, 0.08);
+        font-size: 0.875rem;
+        vertical-align: middle;
+      }
+
+      tbody td::before {
+        display: none;
+      }
+
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      tbody tr:hover {
+        background: rgba(199, 164, 255, 0.04);
+      }
+
+      .table-header {
+        padding: var(--space-3);
+      }
+    }
+
+    /*
+      ============================================================
+      DESKTOP — desde 1100 px
+      ============================================================
+      Se incrementa el ancho respirable del layout sin alterar su estructura.
+    */
+    @media (min-width: 1100px) {
+      .app-shell {
+        padding:
+          var(--space-5)
+          var(--space-4)
+          var(--space-8);
+      }
+
+      h1 {
+        font-size: 2.25rem;
+      }
+
+      .metric-grid {
+        gap: var(--space-3);
+        margin-bottom: var(--space-3);
+      }
+
+      .main-card {
+        margin-bottom: var(--space-3);
+      }
+
+      .chart-wrap {
+        height: 384px;
+      }
+    }
+
+    /*
+      Respeta preferencias de accesibilidad del sistema.
+      No elimina funcionalidad; solo evita animación innecesaria.
+    */
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand-block">
+        <div class="brand-mark" aria-hidden="true">LT</div>
+
+        <div>
+          <p class="eyebrow">Analítica comercial</p>
+          <h1>La Torre Estética</h1>
+          <p class="subtitle">
+            Rendimiento de tratamientos, ventas y captación de pacientes.
+          </p>
+        </div>
+      </div>
+
+      <div class="filter-group" aria-label="Filtro de período">
+        <button class="filter-btn" data-period="today">Hoy</button>
+        <button class="filter-btn" data-period="week">Semana</button>
+        <button class="filter-btn active" data-period="month">Mes</button>
+      </div>
+    </header>
+
+    <section class="metric-grid" aria-label="Métricas principales">
+      <article class="card metric-card">
+        <div class="metric-label">Visitas</div>
+        <div class="metric-value" id="metricVisits">184</div>
+        <div class="metric-meta">
+          <span class="trend-positive" id="metricVisitsTrend">+12,7%</span>
+          <span>vs. período anterior</span>
+        </div>
+      </article>
+
+      <article class="card metric-card">
+        <div class="metric-label">Ventas</div>
+        <div class="metric-value" id="metricSales">$2,84 M</div>
+        <div class="metric-meta">
+          <span class="trend-positive" id="metricSalesTrend">+18,3%</span>
+          <span>vs. período anterior</span>
+        </div>
+      </article>
+
+      <article class="card metric-card">
+        <div class="metric-label">Leads</div>
+        <div class="metric-value" id="metricLeads">67</div>
+        <div class="metric-meta">
+          <span class="trend-neutral" id="metricLeadsTrend">+4,9%</span>
+          <span>vs. período anterior</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="card main-card" aria-labelledby="trend-title">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title" id="trend-title">Tendencia de actividad</h2>
+          <p class="section-copy" id="chartSubtitle">
+            Últimos 30 días · visitas y ventas diarias
+          </p>
+        </div>
+
+        <div class="legend-note">Valores de demo</div>
+      </div>
+
+      <div class="chart-wrap">
+        <canvas
+          id="trendChart"
+          aria-label="Gráfico de tendencia de visitas y ventas"
+          role="img"
+        ></canvas>
+      </div>
+    </section>
+
+    <section class="card table-card" aria-labelledby="entries-title">
+      <div class="table-header">
+        <h2 class="section-title" id="entries-title">Últimas 10 entradas</h2>
+        <p class="section-copy">Turnos, consultas y ventas recientes.</p>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Paciente</th>
+              <th scope="col">Servicio</th>
+              <th scope="col">Origen</th>
+              <th scope="col">Fecha</th>
+              <th scope="col">Importe</th>
+              <th scope="col">Estado</th>
+            </tr>
+          </thead>
+
+          <tbody id="detailTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Dashboard de demostración · Datos ficticios de cosmetología
+    </footer>
+  </main>
+
+  <script>
+    /*
+      ============================================================
+      DATOS Y FUNCIONALIDAD
+      ============================================================
+      Se conservan la estructura de datos, el filtrado y la lógica
+      de actualización del dashboard de la versión original.
+    */
+    const dashboardData = {
+      today: {
+        metrics: {
+          visits: "9",
+          visitsTrend: "+8,1%",
+          sales: "$146 mil",
+          salesTrend: "+11,5%",
+          leads: "4",
+          leadsTrend: "+2,3%"
+        },
+        subtitle: "Hoy · evolución por franja horaria",
+        labels: ["09 h", "10 h", "11 h", "12 h", "13 h", "14 h", "15 h", "16 h", "17 h", "18 h"],
+        visits: [0, 1, 1, 0, 1, 1, 2, 1, 1, 1],
+        sales: [0, 18, 0, 22, 0, 28, 32, 0, 24, 22]
+      },
+
+      week: {
+        metrics: {
+          visits: "46",
+          visitsTrend: "+10,4%",
+          sales: "$718 mil",
+          salesTrend: "+14,6%",
+          leads: "18",
+          leadsTrend: "+3,7%"
+        },
+        subtitle: "Últimos 7 días · visitas y ventas diarias",
+        labels: ["Mar", "Mié", "Jue", "Vie", "Sáb", "Dom", "Lun"],
+        visits: [5, 7, 6, 9, 11, 3, 5],
+        sales: [74, 98, 82, 138, 176, 52, 98]
+      },
+
+      month: {
+        metrics: {
+          visits: "184",
+          visitsTrend: "+12,7%",
+          sales: "$2,84 M",
+          salesTrend: "+18,3%",
+          leads: "67",
+          leadsTrend: "+4,9%"
+        },
+        subtitle: "Últimos 30 días · visitas y ventas diarias",
+        labels: [
+          "10 Ago","11 Ago","12 Ago","13 Ago","14 Ago","15 Ago","16 Ago","17 Ago","18 Ago","19 Ago",
+          "20 Ago","21 Ago","22 Ago","23 Ago","24 Ago","25 Ago","26 Ago","27 Ago","28 Ago","29 Ago",
+          "30 Ago","31 Ago","1 Sep","2 Sep","3 Sep","4 Sep","5 Sep","6 Sep","7 Sep","8 Sep"
+        ],
+        visits: [4,5,6,4,7,8,3,5,6,7,4,6,8,10,5,4,7,6,8,9,5,3,7,6,9,8,11,4,7,9],
+        sales: [58,72,84,61,97,124,44,78,89,106,62,91,118,154,79,66,108,94,126,141,75,49,112,99,145,128,176,64,121,148]
+      }
+    };
+
+    const recentEntries = [
+      { initials: "MF", name: "Marina Fernández", service: "Limpieza facial profunda", source: "Instagram", date: "08/09/2026 · 18:10", amount: "$28.000", status: "Completado", statusClass: "badge-completed" },
+      { initials: "LC", name: "Lucía Cabrera", service: "Peeling enzimático", source: "WhatsApp", date: "08/09/2026 · 16:40", amount: "$24.500", status: "Completado", statusClass: "badge-completed" },
+      { initials: "VM", name: "Valentina Méndez", service: "Consulta cosmetológica", source: "Referido", date: "08/09/2026 · 15:20", amount: "$0", status: "Lead", statusClass: "badge-lead" },
+      { initials: "SP", name: "Sofía Pereyra", service: "Dermaplaning", source: "Instagram", date: "08/09/2026 · 13:15", amount: "$31.000", status: "Completado", statusClass: "badge-completed" },
+      { initials: "AG", name: "Ana Gómez", service: "Hidratación facial", source: "Google", date: "08/09/2026 · 11:30", amount: "$22.000", status: "Completado", statusClass: "badge-completed" },
+      { initials: "CR", name: "Camila Rodríguez", service: "Limpieza + extracciones", source: "WhatsApp", date: "07/09/2026 · 19:00", amount: "$30.500", status: "Pendiente", statusClass: "badge-pending" },
+      { initials: "JP", name: "Julieta Paz", service: "Control de rutina", source: "Cliente recurrente", date: "07/09/2026 · 17:30", amount: "$18.000", status: "Completado", statusClass: "badge-completed" },
+      { initials: "BT", name: "Belén Torres", service: "Peeling químico suave", source: "Instagram", date: "07/09/2026 · 15:45", amount: "$27.000", status: "Completado", statusClass: "badge-completed" },
+      { initials: "MM", name: "Martina Molina", service: "Consulta piel sensible", source: "Instagram", date: "07/09/2026 · 12:20", amount: "$0", status: "Lead", statusClass: "badge-lead" },
+      { initials: "NR", name: "Natalia Ruiz", service: "Higiene facial premium", source: "WhatsApp", date: "06/09/2026 · 18:00", amount: "$34.000", status: "Completado", statusClass: "badge-completed" }
+    ];
+
+    /*
+      Se agregan data-label únicamente para que la tabla pueda leerse
+      como tarjetas en móvil. No cambia ningún dato ni comportamiento.
+    */
+    function renderTable() {
+      const tbody = document.getElementById("detailTableBody");
+
+      tbody.innerHTML = recentEntries.map(entry => `
+        <tr>
+          <td data-label="Paciente">
+            <div class="client-cell">
+              <span class="avatar">${entry.initials}</span>
+              <span>${entry.name}</span>
+            </div>
+          </td>
+          <td data-label="Servicio">${entry.service}</td>
+          <td data-label="Origen">${entry.source}</td>
+          <td data-label="Fecha">${entry.date}</td>
+          <td data-label="Importe" class="money">${entry.amount}</td>
+          <td data-label="Estado">
+            <span class="badge ${entry.statusClass}">${entry.status}</span>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    const ctx = document.getElementById("trendChart").getContext("2d");
+
+    /*
+      El gráfico también adopta la paleta de 3 colores:
+      violeta para visitas y blanco para ventas.
+    */
+    const gradient = ctx.createLinearGradient(0, 0, 0, 352);
+    gradient.addColorStop(0, "rgba(199, 164, 255, 0.26)");
+    gradient.addColorStop(1, "rgba(199, 164, 255, 0)");
+
+    const chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: dashboardData.month.labels,
+        datasets: [
+          {
+            label: "Visitas",
+            data: dashboardData.month.visits,
+            borderColor: "#c7a4ff",
+            backgroundColor: gradient,
+            fill: true,
+            tension: 0.38,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: "#c7a4ff",
+            borderWidth: 2.5,
+            yAxisID: "y"
+          },
+          {
+            label: "Ventas (miles $)",
+            data: dashboardData.month.sales,
+            borderColor: "#f4f4f6",
+            backgroundColor: "transparent",
+            fill: false,
+            tension: 0.38,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: "#f4f4f6",
+            borderWidth: 2,
+            yAxisID: "y1"
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: "index",
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            position: "top",
+            align: "end",
+            labels: {
+              color: "rgba(244, 244, 246, 0.76)",
+              usePointStyle: true,
+              pointStyle: "circle",
+              boxWidth: 8,
+              boxHeight: 8,
+              padding: 16,
+              font: {
+                size: 12,
+                weight: "600"
+              }
+            }
+          },
+          tooltip: {
+            backgroundColor: "#0b0b0f",
+            borderColor: "rgba(244, 244, 246, 0.18)",
+            borderWidth: 1,
+            titleColor: "#f4f4f6",
+            bodyColor: "#f4f4f6",
+            padding: 12,
+            displayColors: true,
+            callbacks: {
+              label: function(context) {
+                if (context.dataset.yAxisID === "y1") {
+                  return `${context.dataset.label}: $${context.raw} mil`;
+                }
+
+                return `${context.dataset.label}: ${context.raw}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              color: "rgba(244, 244, 246, 0.72)",
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 10,
+              font: {
+                size: 12
+              }
+            },
+            border: {
+              display: false
+            }
+          },
+          y: {
+            beginAtZero: true,
+            suggestedMax: 12,
+            grid: {
+              color: "rgba(244, 244, 246, 0.08)"
+            },
+            ticks: {
+              color: "rgba(244, 244, 246, 0.72)",
+              stepSize: 2,
+              font: {
+                size: 12
+              }
+            },
+            border: {
+              display: false
+            }
+          },
+          y1: {
+            beginAtZero: true,
+            position: "right",
+            grid: {
+              drawOnChartArea: false
+            },
+            ticks: {
+              color: "rgba(244, 244, 246, 0.72)",
+              callback: value => `$${value}k`,
+              font: {
+                size: 12
+              }
+            },
+            border: {
+              display: false
+            }
+          }
+        }
+      }
+    });
+
+    function setPeriod(period) {
+      const current = dashboardData[period];
+
+      document.querySelectorAll(".filter-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.period === period);
+      });
+
+      document.getElementById("metricVisits").textContent = current.metrics.visits;
+      document.getElementById("metricVisitsTrend").textContent = current.metrics.visitsTrend;
+
+      document.getElementById("metricSales").textContent = current.metrics.sales;
+      document.getElementById("metricSalesTrend").textContent = current.metrics.salesTrend;
+
+      document.getElementById("metricLeads").textContent = current.metrics.leads;
+      document.getElementById("metricLeadsTrend").textContent = current.metrics.leadsTrend;
+
+      document.getElementById("chartSubtitle").textContent = current.subtitle;
+
+      chart.data.labels = current.labels;
+      chart.data.datasets[0].data = current.visits;
+      chart.data.datasets[1].data = current.sales;
+      chart.update();
+    }
+
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => setPeriod(btn.dataset.period));
+    });
+
+    renderTable();
+  </script>
+</body>
+</html>
